@@ -231,8 +231,7 @@ if (empty($arResult['ERROR_MESSAGE']))
 			&& in_array('bottom', $arParams['TOTAL_BLOCK_DISPLAY'])
 		)
 		{
-			echo 'LALALALALALALA <br><br>';
-				print_r ($result);
+			
 			?>
 			<div class="row">
 				<div class="col" data-entity="basket-total-block"></div>

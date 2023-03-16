@@ -85,7 +85,6 @@ use Bitrix\Main\Localization\Loc;
 				<div class="basket-coupon-alert-inner">
 					{{#COUPON_LIST}}
 					<?
-					CBitrixBasketComponent::addGiftToBasket(COUPON);
 					?>
 					<div class="basket-coupon-alert text-{{CLASS}}">
 						<span class="basket-coupon-text">

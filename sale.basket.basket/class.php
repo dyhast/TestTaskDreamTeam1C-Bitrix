@@ -12,9 +12,17 @@ use Bitrix\Main\Loader;
 use Bitrix\Main\Localization\Loc;
 use Bitrix\Sale;
 use Bitrix\Sale\Basket;
+
 use Bitrix\Sale\DiscountCouponsManager;
 use Bitrix\Sale\Fuser;
 use Bitrix\Sale\PriceMaths;
+use Bitrix\Sale\Discount\Gift\Manager;
+use Bitrix\Catalog\DiscountCouponTable;
+use Bitrix\Sale\BasketItemCollection;
+use Bitrix\Sale\Discount;
+use Bitrix\Sale\BasketBase;
+
+use Bitrix\Main\Context;
 
 class CBitrixBasketComponent extends CBitrixComponent
 {
@@ -608,6 +616,7 @@ class CBitrixBasketComponent extends CBitrixComponent
 	// legacy method
 	protected function recalculateAction()
 	{
+
 		$currentId = (int)$this->request->get('basketItemId');
 		$propValues = $this->request->get('props') ?: [];
 
@@ -881,7 +890,6 @@ class CBitrixBasketComponent extends CBitrixComponent
 
 		$result = $this->getDefaultAjaxAnswer();
 		$result['BASKET_REFRESHED'] = true;
-
 		self::sendJsonAnswer($result);
 	}
 
@@ -938,8 +946,8 @@ class CBitrixBasketComponent extends CBitrixComponent
 
 	protected function needToReloadGifts(array $result)
 	{
-		$collections = [];
 
+		$collections = [];
 		if ($this->arParams['USE_GIFTS'] === 'Y')
 		{
 			list($found, $coupon) = $this->getCouponFromRequest($this->request->toArray());
@@ -1365,7 +1373,8 @@ class CBitrixBasketComponent extends CBitrixComponent
 		{
 			$this->sortItemsByTabs($result);
 		}
-
+		//custom code - вызов кастомного метода в момент получения данных о корзине и введенных купонах соответственно
+		$this->addGiftToBasket($result);
 		return $result;
 	}
 
@@ -1385,6 +1394,7 @@ class CBitrixBasketComponent extends CBitrixComponent
 
 	protected function getBasketResult()
 	{
+		
 		$result = [];
 
 		$result['GRID']['HEADERS'] = $this->getGridColumns();
@@ -2669,6 +2679,7 @@ class CBitrixBasketComponent extends CBitrixComponent
 					else
 					{
 						$coupon['JS_STATUS'] = 'APPLYED';
+						
 					}
 
 					$coupon['JS_CHECK_CODE'] = '';
@@ -2680,9 +2691,8 @@ class CBitrixBasketComponent extends CBitrixComponent
 							: $coupon['CHECK_CODE_TEXT'];
 					}
 
-					$result['COUPON_LIST'][] = $coupon;
+					$result['COUPON_LIST'][] = $coupon;					
 				}
-
 				unset($coupon);
 			}
 
@@ -3362,7 +3372,6 @@ class CBitrixBasketComponent extends CBitrixComponent
 				}
 			}
 		}
-
 		return $couponChanged;
 	}
 
@@ -3370,6 +3379,8 @@ class CBitrixBasketComponent extends CBitrixComponent
 	{
 		$found = false;
 		$coupon = '';
+
+		
 
 		if (isset($postList['coupon']))
 		{
@@ -3381,7 +3392,6 @@ class CBitrixBasketComponent extends CBitrixComponent
 			$found = true;
 			$coupon = trim((string)$postList['COUPON']);
 		}
-
 		return [$found, $coupon];
 	}
 
@@ -4341,5 +4351,29 @@ class CBitrixBasketComponent extends CBitrixComponent
 		}
 
 		return $currencies;
+	}
+//custom code - обявление кастомной функции класса, которая получает на фход ряд параметров, в т.ч. включающих в себя перечень обявленных купонов
+	public function addGiftToBasket($gift)
+	{
+		if (empty($gift['APPLIED_DISCOUNT_LIST'])) //проверка на то что ни один купон еще не активен
+		{	
+			$basket=$this->getBasketStorage()->getBasket();
+			$items=$gift['FULL_DISCOUNT_LIST'][1]['ACTIONS']['CHILDREN'][0]['CHILDREN'][0]['DATA']['Value'];
+			foreach ($items as $idItem)//перебор значений товаров указанных в акции, т.к. метод addProductToBasket может добавлять только предложения
+			{
+				
+				$item=\Bitrix\Sale\TradingPlatform\Helper::getProductById($idItem,1,$this->getSiteId());
+				if (!empty($item['NAME']))
+				{
+					break;
+				}
+			}
+			$this->addProductToBasket(['PRODUCT_ID' => $idItem,'QUANTITY' => 1,"CURRENCY" => Bitrix\Currency\CurrencyManager::getBaseCurrency(),"PRODUCT_PROVIDER_CLASS" => "CCatalogProductProvider",]); //добавление подарка в товарную корзину
+			$basket->save();//ВАЖНО СОХРАНИТЬ КОРЗИНУ
+			if (!empty($gift['FULL_DISCOUNT_LIST']))
+			{
+				header("Refresh: 3"); //здесь нужно по хорошему ajax-ом обновлять DOm-элемент, но как это сделать в модуле 1C-битрикс я не знаю к сожалению, нужен куратор по этому вопросу 
+			}
+		}
 	}
 }
